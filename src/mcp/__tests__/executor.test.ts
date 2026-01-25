@@ -1,0 +1,36 @@
+import { describe, it, expect, vi } from 'vitest';
+import { executeTool } from '../executor.js';
+
+describe('executeTool', () => {
+    it('should call callTool on the client with correct parameters', async () => {
+        const mockCallTool = vi.fn().mockResolvedValue({ content: [{ type: 'text', text: 'result' }] });
+        const mockTool = {
+            name: 'test-tool',
+            client: {
+                callTool: mockCallTool
+            }
+        } as any;
+        const args = { arg1: 'val1' };
+
+        const result = await executeTool(mockTool, args);
+
+        expect(mockCallTool).toHaveBeenCalledWith({
+            name: 'test-tool',
+            arguments: args
+        });
+        expect(result).toEqual({ content: [{ type: 'text', text: 'result' }] });
+    });
+
+    it('should throw error if tool execution fails', async () => {
+        const mockError = new Error('Execution failed');
+        const mockCallTool = vi.fn().mockRejectedValue(mockError);
+        const mockTool = {
+            name: 'fail-tool',
+            client: {
+                callTool: mockCallTool
+            }
+        } as any;
+
+        await expect(executeTool(mockTool, {})).rejects.toThrow('Execution failed');
+    });
+});

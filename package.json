@@ -1,0 +1,36 @@
+{
+  "name": "tool-search-tools-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "fuse.js": "^7.1.0",
+    "node-fetch": "^3.3.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.7",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "keywords": [
+    "MCP",
+    "Tool search tools MCP"
+  ],
+  "author": "fussraider",
+  "license": "MIT",
+  "packageManager": "pnpm@10.26.2"
+}
