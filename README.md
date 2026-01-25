@@ -23,9 +23,10 @@ Modern LLMs (e.g., Claude) have context limits. When you connect multiple MCP se
 
 *   **Aggregation**: Access tools from different MCP servers (e.g., filesystem, git, sqlite) through a single server.
 *   **Smart Search**: A dedicated `search_tools` tool for filtering available functions. Uses fuzzy search and considers tool names, descriptions, and parameters.
+*   **Keyword Generation**: Automatic keyword extraction from tool definitions for improved search accuracy.
 *   **Context Saving**: Instead of hundreds of tools, the model sees only two, which is critical for long dialogues.
 *   **Dynamic Calling**: The `call_tool` tool for executing commands from found servers.
-*   **Improved Logging**: Support for file output and detailed log level configuration.
+*   **Improved Logging**: Support for file output, scope-based logging, and detailed log level configuration.
 *   **Security**: Validation of responses from connected servers using Zod.
 
 ## Installation
@@ -92,7 +93,10 @@ The list of connected servers is configured in the `mcp-config.json` file in the
   "mcpServers": {
     "filesystem": {
       "command": "npx",
-      "args": ["@modelcontextprotocol/server-filesystem", "/your/path"]
+      "args": ["@modelcontextprotocol/server-filesystem", "/your/path"],
+      "env": {
+        "SOME_VAR": "value"
+      }
     }
   }
 }
@@ -106,11 +110,14 @@ The list of connected servers is configured in the `mcp-config.json` file in the
 
 ## Project Structure
 
-*   `src/server.ts` — Main MCP server file.
+*   `src/server.ts` — Main MCP server file. Entry point that initializes the server and registered tools.
 *   `src/mcp/` — MCP logic:
-    *   `registry.ts` — Connection management for other servers.
-    *   `search.ts` — Search algorithm.
-    *   `executor.ts` — Command execution.
+    *   `registry.ts` — Connection management for other servers, tool extraction, and keyword generation for search.
+    *   `search.ts` — Fuzzy search algorithm using `fuse.js` and custom weighting.
+    *   `executor.ts` — Proxy logic for calling tools on connected servers.
+*   `src/utils/` — Utilities:
+    *   `logger.ts` — Custom logger with file support and log levels.
+*   `mcp-config.json` — Configuration file for connected MCP servers.
 
 ## License
 
