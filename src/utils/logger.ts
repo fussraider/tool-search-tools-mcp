@@ -31,15 +31,15 @@ export class Logger {
 
         const envShowTimestamp = process.env.LOG_SHOW_TIMESTAMP?.toLowerCase();
         this.showTimestamp = envShowTimestamp === 'true' || envShowTimestamp === '1' || envShowTimestamp === 'yes';
-        
+
         this.logFilePath = process.env.LOG_FILE_PATH;
         if (this.logFilePath) {
             try {
                 const logDir = path.dirname(this.logFilePath);
                 if (!fs.existsSync(logDir)) {
-                    fs.mkdirSync(logDir, { recursive: true });
+                    fs.mkdirSync(logDir, {recursive: true});
                 }
-                this.logStream = fs.createWriteStream(this.logFilePath, { flags: 'a' });
+                this.logStream = fs.createWriteStream(this.logFilePath, {flags: 'a'});
             } catch (error) {
                 process.stderr.write(`Failed to create log stream for ${this.logFilePath}: ${error}\n`);
             }
@@ -61,7 +61,7 @@ export class Logger {
         const timestampPart = this.showTimestamp ? ` [${new Date().toISOString()}]` : '';
         const emoji = LogEmoji[level] || '';
         const scopePart = this.scope ? ` [${this.scope}]` : '';
-        
+
         const formattedArgs = args.length > 0 ? ' ' + args.map(arg => {
             if (arg instanceof Error) {
                 return arg.stack || arg.message;
@@ -75,7 +75,7 @@ export class Logger {
             }
             return String(arg);
         }).join(' ') : '';
-        
+
         return `${emoji}${timestampPart} [${LogLevel[level]}]${scopePart} ${message}${formattedArgs}\n`;
     }
 

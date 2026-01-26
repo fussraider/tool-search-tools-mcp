@@ -1,9 +1,10 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js"
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
-import { CallToolResultSchema, ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js"
-import { logger } from "../utils/logger.js"
-import { Readable } from "stream"
-import { z } from "zod"
+import {Client} from "@modelcontextprotocol/sdk/client/index.js"
+import {StdioClientTransport} from "@modelcontextprotocol/sdk/client/stdio.js"
+import {ListToolsResultSchema} from "@modelcontextprotocol/sdk/types.js"
+import {logger} from "../utils/logger.js"
+import {embeddingService, EmbeddingService} from "../utils/embeddings.js"
+import {extractKeywords, tokenize} from "../utils/text.js"
+import {Readable} from "stream"
 
 export type MCPTool = {
     server: string
@@ -12,6 +13,7 @@ export type MCPTool = {
     schema: any
     schemaKeywords?: string
     client: Client
+    embedding?: Float32Array | number[]
 }
 
 export class MCPRegistry {
@@ -28,7 +30,7 @@ export class MCPRegistry {
         env?: Record<string, string>
     ) {
         const mcpLogger = logger.child(`MCP:${serverName}`);
-        
+
         try {
             const transport = new StdioClientTransport({
                 command,
@@ -46,9 +48,10 @@ export class MCPRegistry {
 
             this.setupStderrLogging(transport, mcpLogger)
 
+            const serverHash = EmbeddingService.generateServerHash(serverName, {command, args, env});
             await client.connect(transport)
-            await this.registerToolsFromClient(serverName, client)
-            
+            await this.registerToolsFromClient(serverName, client, serverHash)
+
             mcpLogger.info(`Successfully connected and loaded tools`)
         } catch (error) {
             mcpLogger.error(`Failed to connect to server:`, error)
@@ -71,14 +74,33 @@ export class MCPRegistry {
         }
     }
 
-    public async registerToolsFromClient(serverName: string, client: Client) {
+    public async registerToolsFromClient(serverName: string, client: Client, serverHash?: string) {
         const result = await client.listTools()
-        const { tools } = ListToolsResultSchema.parse(result)
+        const {tools} = ListToolsResultSchema.parse(result)
+        const mcpLogger = logger.child(`MCP:${serverName}`);
+
+        const cachedEmbeddings = serverHash ? await embeddingService.getCachedEmbeddings(serverHash) : null;
+        const currentEmbeddings: Record<string, Float32Array | number[]> = {...cachedEmbeddings};
+        const newEmbeddingsCount = {value: 0};
 
         for (const tool of tools) {
-            logger.child(`MCP:${serverName}`).debug(`Registering tool: ${tool.name}`)
-            
-            const keywords = this.extractKeywords(tool)
+            mcpLogger.debug(`Registering tool: ${tool.name}`)
+
+            const keywords = this.extractToolKeywords(tool)
+            let embedding = cachedEmbeddings ? cachedEmbeddings[tool.name] : undefined;
+
+            if (!embedding && process.env.MCP_SEARCH_MODE === 'vector') {
+                try {
+                    const textToEmbed = `${tool.name} ${tool.description ?? ""} ${keywords.join(" ")}`;
+                    embedding = await embeddingService.generateEmbedding(textToEmbed);
+                    currentEmbeddings[tool.name] = embedding;
+                    newEmbeddingsCount.value++;
+                } catch (error) {
+                    mcpLogger.error(`Failed to generate embedding for tool ${tool.name}: ${error}`);
+                }
+            } else if (embedding) {
+                currentEmbeddings[tool.name] = embedding;
+            }
 
             this._tools.push({
                 server: serverName,
@@ -86,48 +108,36 @@ export class MCPRegistry {
                 description: tool.description ?? "",
                 schema: tool.inputSchema,
                 schemaKeywords: keywords.join(" "),
-                client
+                client,
+                embedding
             })
         }
-        
-        logger.child(`MCP:${serverName}`).info(`Registered ${tools.length} tools`)
+
+        if (process.env.MCP_SEARCH_MODE === 'vector' && Object.keys(currentEmbeddings).length > 0) {
+            const memoryUsage = EmbeddingService.calculateMemoryUsage(currentEmbeddings);
+            mcpLogger.info(`Embeddings stats: ${Object.keys(currentEmbeddings).length} total tools, ${newEmbeddingsCount.value} newly generated. Approx. ${EmbeddingService.formatBytes(memoryUsage)} in memory`);
+        }
+
+        if (serverHash && newEmbeddingsCount.value > 0) {
+            await embeddingService.saveEmbeddingsToCache(serverHash, currentEmbeddings);
+        }
+
+        mcpLogger.info(`Registered ${tools.length} tools`)
     }
 
-    public extractKeywords(tool: any): string[] {
-        const keywords: string[] = []
-        
-        // Части имени
-        if (tool.name.includes("_")) {
-            keywords.push(...tool.name.split("_"))
-        } else if (tool.name.includes("-")) {
-            keywords.push(...tool.name.split("-"))
-        } else {
-            keywords.push(tool.name)
-        }
+    private extractToolKeywords(tool: any): string[] {
+        const keywords = new Set<string>(extractKeywords(tool.name, tool.description));
 
-        // Ключевые слова из описания (простые слова > 3 букв)
-        if (tool.description) {
-            const descWords = tool.description.toLowerCase()
-                .replace(/[^\w\s]/g, ' ')
-                .split(/\s+/)
-                .filter((w: string) => w.length > 3)
-            keywords.push(...descWords)
-        }
-
-        // Параметры
+        // Добавляем ключевые слова из параметров
         if (tool.inputSchema?.properties) {
             Object.entries(tool.inputSchema.properties).forEach(([propName, propDef]: [string, any]) => {
-                keywords.push(propName)
+                keywords.add(propName.toLowerCase());
                 if (propDef.description) {
-                    const propDescWords = propDef.description.toLowerCase()
-                        .replace(/[^\w\s]/g, ' ')
-                        .split(/\s+/)
-                        .filter((w: string) => w.length > 3)
-                    keywords.push(...propDescWords)
+                    tokenize(propDef.description).forEach(word => keywords.add(word));
                 }
-            })
+            });
         }
 
-        return Array.from(new Set(keywords))
+        return Array.from(keywords);
     }
 }

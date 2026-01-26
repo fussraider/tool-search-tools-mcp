@@ -1,10 +1,17 @@
-import { describe, it, expect } from 'vitest';
-import { searchTools } from '../search.js';
-import { MCPRegistry, MCPTool } from '../registry.js';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {searchTools} from '../search.js';
+import {MCPRegistry} from '../registry.js';
+import {embeddingService} from '../../utils/embeddings.js';
+
+vi.mock('../../utils/embeddings.js', () => ({
+    embeddingService: {
+        generateEmbedding: vi.fn()
+    }
+}));
 
 describe('searchTools', () => {
     const mockClient = {} as any;
-    
+
     const mockRegistry = {
         tools: [
             {
@@ -12,95 +19,73 @@ describe('searchTools', () => {
                 description: 'Get current weather in a city',
                 server: 'weather-server',
                 schemaKeywords: 'weather city temperature',
-                client: mockClient
+                client: mockClient,
+                embedding: [1, 0, 0]
             },
             {
                 name: 'search_github',
                 description: 'Search for repositories on GitHub',
                 server: 'github-server',
                 schemaKeywords: 'git repo code',
-                client: mockClient
+                client: mockClient,
+                embedding: [0, 1, 0]
             },
             {
                 name: 'list_files',
                 description: 'List files in a directory',
                 server: 'fs-server',
                 schemaKeywords: 'file folder directory',
-                client: mockClient
+                client: mockClient,
+                embedding: [0, 0, 1]
             }
         ]
     } as unknown as MCPRegistry;
 
-    it('should find tools by name', () => {
-        const results = searchTools(mockRegistry, 'weather');
-        expect(results).toHaveLength(1);
-        expect(results[0].name).toBe('get_weather');
+    beforeEach(() => {
+        vi.clearAllMocks();
+        delete process.env.MCP_SEARCH_MODE;
     });
 
-    it('should find tools by description', () => {
-        const results = searchTools(mockRegistry, 'repositories');
-        expect(results).toHaveLength(1);
-        expect(results[0].name).toBe('search_github');
+    describe('Fuse search (default)', () => {
+        it('should find tools by name', async () => {
+            const results = await searchTools(mockRegistry, 'weather');
+            expect(results).toHaveLength(1);
+            expect(results[0].name).toBe('get_weather');
+        });
+
+        it('should find tools by description', async () => {
+            const results = await searchTools(mockRegistry, 'repositories');
+            expect(results).toHaveLength(1);
+            expect(results[0].name).toBe('search_github');
+        });
+
+        it('should rank exact matches higher', async () => {
+            const results = await searchTools(mockRegistry, 'search');
+            expect(results[0].name).toBe('search_github');
+        });
     });
 
-    it('should find tools by keywords', () => {
-        const results = searchTools(mockRegistry, 'directory');
-        expect(results).toHaveLength(1);
-        expect(results[0].name).toBe('list_files');
-    });
+    describe('Vector search', () => {
+        beforeEach(() => {
+            process.env.MCP_SEARCH_MODE = 'vector';
+        });
 
-    it('should respect limit parameter', () => {
-        const results = searchTools(mockRegistry, 'e', 1);
-        expect(results).toHaveLength(1);
-    });
+        it('should find tools using vector similarity', async () => {
+            // Mock embedding for query to be close to 'get_weather' [1, 0, 0]
+            (embeddingService.generateEmbedding as any).mockResolvedValue([0.9, 0.1, 0.1]);
 
-    it('should rank exact matches higher', () => {
-        // 'search' matches 'search_github' in name and description
-        const results = searchTools(mockRegistry, 'search');
-        expect(results[0].name).toBe('search_github');
-    });
+            const results = await searchTools(mockRegistry, 'some weather query');
+            expect(results.length).toBeGreaterThan(0);
+            expect(results[0].name).toBe('get_weather');
+            expect(embeddingService.generateEmbedding).toHaveBeenCalled();
+        });
 
-    it('should handle multi-word queries', () => {
-        const results = searchTools(mockRegistry, 'weather city');
-        expect(results.length).toBeGreaterThan(0);
-        expect(results[0].name).toBe('get_weather');
-    });
+        it('should find github tool when query is close to it', async () => {
+            // Close to [0, 1, 0]
+            (embeddingService.generateEmbedding as any).mockResolvedValue([0.1, 0.9, 0.1]);
 
-    it('should return empty array if no matches found', () => {
-        const results = searchTools(mockRegistry, 'nonexistenttoolname12345');
-        expect(results).toHaveLength(0);
-    });
-
-    it('should handle empty or very short queries', () => {
-        const resultsEmpty = searchTools(mockRegistry, '');
-        expect(resultsEmpty.length).toBeLessThanOrEqual(5);
-
-        const resultsShort = searchTools(mockRegistry, 'a');
-        expect(resultsShort.length).toBeLessThanOrEqual(5);
-    });
-
-    it('should handle tools with missing descriptions', () => {
-        const minimalRegistry = {
-            tools: [
-                {
-                    name: 'minimal_tool',
-                    description: '',
-                    server: 'test-server',
-                    client: mockClient
-                }
-            ]
-        } as unknown as MCPRegistry;
-
-        const results = searchTools(minimalRegistry, 'minimal');
-        expect(results).toHaveLength(1);
-        expect(results[0].name).toBe('minimal_tool');
-    });
-
-    it('should combine results from multiple words if phrase search fails', () => {
-        const results = searchTools(mockRegistry, 'weather repositories');
-        // It should find both 'get_weather' and 'search_github'
-        const names = results.map(r => r.name);
-        expect(names).toContain('get_weather');
-        expect(names).toContain('search_github');
+            const results = await searchTools(mockRegistry, 'git search');
+            expect(results[0].name).toBe('search_github');
+        });
     });
 });

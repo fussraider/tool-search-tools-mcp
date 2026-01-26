@@ -1,16 +1,16 @@
-import { describe, it, expect, vi } from 'vitest';
-import { executeTool } from '../executor.js';
+import {describe, expect, it, vi} from 'vitest';
+import {executeTool} from '../executor.js';
 
 describe('executeTool', () => {
     it('should call callTool on the client with correct parameters', async () => {
-        const mockCallTool = vi.fn().mockResolvedValue({ content: [{ type: 'text', text: 'result' }] });
+        const mockCallTool = vi.fn().mockResolvedValue({content: [{type: 'text', text: 'result'}]});
         const mockTool = {
             name: 'test-tool',
             client: {
                 callTool: mockCallTool
             }
         } as any;
-        const args = { arg1: 'val1' };
+        const args = {arg1: 'val1'};
 
         const result = await executeTool(mockTool, args);
 
@@ -18,7 +18,7 @@ describe('executeTool', () => {
             name: 'test-tool',
             arguments: args
         });
-        expect(result).toEqual({ content: [{ type: 'text', text: 'result' }] });
+        expect(result).toEqual({content: [{type: 'text', text: 'result'}]});
     });
 
     it('should throw error if tool execution fails', async () => {

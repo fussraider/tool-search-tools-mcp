@@ -1,7 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Logger, LogLevel } from '../logger.js';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {Logger} from '../logger.js';
 import fs from 'fs';
-import path from 'path';
 
 describe('Logger', () => {
     let stderrSpy: any;
@@ -43,7 +42,7 @@ describe('Logger', () => {
 
     it('should format objects correctly', () => {
         const logger = new Logger();
-        const obj = { key: 'value' };
+        const obj = {key: 'value'};
         logger.info('object:', obj);
         const output = stderrSpy.mock.calls[0][0];
         expect(output).toContain('{\n  "key": "value"\n}');
@@ -75,14 +74,14 @@ describe('Logger', () => {
             on: vi.fn()
         };
         const createStreamSpy = vi.spyOn(fs, 'createWriteStream').mockReturnValue(writeStreamMock as any);
-        
+
         vi.stubEnv('LOG_FILE_PATH', logFile);
-        
+
         const logger = new Logger('file-test');
         logger.info('test message');
-        
+
         expect(mkdirSpy).toHaveBeenCalled();
-        expect(createStreamSpy).toHaveBeenCalledWith(logFile, { flags: 'a' });
+        expect(createStreamSpy).toHaveBeenCalledWith(logFile, {flags: 'a'});
         expect(writeStreamMock.write).toHaveBeenCalled();
         expect(stderrSpy).not.toHaveBeenCalled();
     });
@@ -92,9 +91,9 @@ describe('Logger', () => {
         vi.spyOn(fs, 'createWriteStream').mockImplementation(() => {
             throw new Error('Permission denied');
         });
-        
+
         new Logger('fail-test');
-        
+
         expect(stderrSpy).toHaveBeenCalled();
         expect(stderrSpy.mock.calls[0][0]).toContain('Failed to create log stream');
     });
@@ -103,9 +102,9 @@ describe('Logger', () => {
         const logger = new Logger();
         const circular: any = {};
         circular.self = circular;
-        
+
         logger.info('circular:', circular);
-        
+
         const output = stderrSpy.mock.calls[0][0];
         expect(output).toContain('[Unserializable Object]');
     });

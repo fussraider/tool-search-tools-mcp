@@ -1,5 +1,4 @@
-import { MCPTool } from "./registry.js"
-import { logger } from "../utils/logger.js"
+import {MCPTool} from "./registry.js"
 
 export async function executeTool(
     tool: MCPTool,
