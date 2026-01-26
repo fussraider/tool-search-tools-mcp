@@ -126,6 +126,15 @@ Add this server to your MCP client configuration. For example, for Claude Deskto
 }
 ```
 
+
+#### Cursor / Antigravity / LM Studio / Other Clients
+
+Most clients that support MCP via `stdio` follow the same pattern. You need to provide:
+- **Command**: `node`
+- **Arguments**: `["/path/to/tool-search-tools-mcp/dist/server.js"]`
+- **Environment Variables**: `MCP_CONFIG_PATH` (mandatory if not in default location), `MCP_SEARCH_MODE` (optional).
+
+
 ## Configuration
 
 The list of connected servers is configured in the `mcp-config.json` file in the project root or at the path specified
@@ -180,9 +189,54 @@ rm -rf node_modules pnpm-lock.yaml
 pnpm install
 ```
 
+## FAQ
+
+<details>
+<summary>Does this tool support all MCP servers?</summary>
+Yes, it acts as a proxy and can connect to any server that follows the Model Context Protocol (stdio-based).
+</details>
+
+<details>
+<summary>Why use "vector" search mode?</summary>
+Vector (semantic) search understands the meaning of your query, not just exact keyword matches. This is helpful when you don't know the exact name of a tool but know what it should do.
+</details>
+
+<details>
+<summary>Is my data safe when using vector search?</summary>
+Yes, by default, the project uses `transformers.js` with the `Xenova/all-MiniLM-L6-v2` model, which runs **locally** on your machine. No data is sent to external APIs for embedding generation.
+</details>
+
+<details>
+<summary>Can I use this with Claude Desktop?</summary>
+Absolutely! See the [Usage](#connecting-to-claude-desktop-or-other-clients) section for configuration examples.
+</details>
+
+<details>
+<summary>How do I switch between "fuse" and "vector" search modes?</summary>
+You can set the `MCP_SEARCH_MODE` environment variable to either `fuse` (fuzzy text search) or `vector` (semantic search). For Claude Desktop, add it to the `env` section of your server configuration.
+</details>
+
+<details>
+<summary>Where are the embeddings stored and how can I clear them?</summary>
+By default, embeddings are cached in the `.cache/embeddings` directory within the project folder. You can change this path using the `MCP_CACHE_DIR` environment variable. 
+
+The cache is only created and used in **vector** search mode. It is automatically updated when tool definitions change, and any outdated or unused entries are removed. To force a full re-index, simply delete this directory.
+</details>
+
+<details>
+<summary>How can I add more MCP servers for this tool to aggregate?</summary>
+Edit your `mcp-config.json` file and add new servers to the `mcpServers` object. The format is identical to the Claude Desktop configuration.
+</details>
+
+<details>
+<summary>Can I use a different embedding model?</summary>
+Yes, you can specify a different model from [Hugging Face](https://huggingface.co/models?library=transformers.js) using the `MCP_EMBEDDING_MODEL` environment variable. Make sure the model is compatible with `transformers.js`.
+</details>
+
 ## Project Structure
 
 * `src/server.ts` — Main MCP server file. Entry point that initializes the server and registered tools.
+* `src/cli.ts` — CLI utility for testing tool search directly from the terminal.
 * `src/mcp/` — MCP logic:
     * `registry.ts` — Connection management for other servers, tool extraction, and keyword generation for search.
     * `search.ts` — Fuzzy search algorithm using `fuse.js` and semantic vector search.
