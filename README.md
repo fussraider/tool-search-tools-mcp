@@ -1,7 +1,9 @@
 # Tool search tools MCP
 
+![CI](https://github.com/fussraider/tool-search-tools-mcp/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/github/license/fussraider/tool-search-tools-mcp)
 ![Node.js Version](https://img.shields.io/badge/node-%3E%3D22-blue)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
 English | [Русский](./README.ru.md)
 
@@ -42,7 +44,13 @@ Modern LLMs (e.g., Claude) have context limits. When you connect multiple MCP se
 
 ## Installation
 
-1. Clone the repository.
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/fussraider/tool-search-tools-mcp.git
+   cd tool-search-tools-mcp
+   ```
+   **Or** download the [latest release]( ).
+
 2. Install dependencies:
    ```bash
    pnpm install # or npm install, yarn

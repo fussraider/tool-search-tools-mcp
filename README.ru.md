@@ -1,7 +1,9 @@
 # Tool search tools MCP
 
+![CI](https://github.com/fussraider/tool-search-tools-mcp/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/github/license/fussraider/tool-search-tools-mcp)
 ![Node.js Version](https://img.shields.io/badge/node-%3E%3D22-blue)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
 [English](./README.md) | Русский
 
@@ -34,8 +36,14 @@
 
 ## Установка
 
-1.  Клонируйте репозиторий.
-2.  Установите зависимости:
+1. Клонируйте репозиторий:
+   ```bash
+   git clone https://github.com/fussraider/tool-search-tools-mcp.git
+   cd tool-search-tools-mcp
+   ```
+   **Или** скачайте [последний релиз](https://github.com/fussraider/tool-search-tools-mcp/releases).
+
+2. Установите зависимости:
     ```bash
     pnpm install # или npm install, yarn
     ```
