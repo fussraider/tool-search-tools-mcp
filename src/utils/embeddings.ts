@@ -60,8 +60,16 @@ export class EmbeddingService {
             await fs.mkdir(CACHE_DIR, {recursive: true});
             const cachePath = path.join(CACHE_DIR, `${serverHash}.json`);
             this.logger.debug(`Saving ${Object.keys(embeddings).length} embeddings to cache: ${cachePath}`);
-            // JSON.stringify корректно обработает Float32Array как обычный массив
-            await fs.writeFile(cachePath, JSON.stringify(embeddings));
+            
+            // Преобразуем Float32Array в обычные массивы перед сериализацией,
+            // так как JSON.stringify может превращать их в объекты вида {"0":...} в некоторых окружениях
+            // или некорректно обрабатывать, если мы полагаемся на то что они ведут себя как массивы.
+            const plainEmbeddings: Record<string, number[]> = {};
+            for (const [key, value] of Object.entries(embeddings)) {
+                plainEmbeddings[key] = Array.from(value);
+            }
+            
+            await fs.writeFile(cachePath, JSON.stringify(plainEmbeddings));
         } catch (error) {
             this.logger.error(`Failed to save embeddings cache: ${error}`);
         }

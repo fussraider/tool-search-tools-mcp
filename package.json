@@ -11,6 +11,7 @@
     "dev": "tsx src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "search_tools": "tsx src/cli.ts",
     "test": "vitest run"
   },
   "dependencies": {

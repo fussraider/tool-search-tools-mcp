@@ -75,7 +75,7 @@ describe('Search Integration', () => {
     it('should return empty array when no matches found below threshold in vector mode', async () => {
         process.env.MCP_SEARCH_MODE = 'vector';
         // Запрос совсем не похож на наши инструменты
-        (embeddingService.generateEmbedding as any).mockResolvedValue([-1, -1, -1]);
+        (embeddingService.generateEmbedding as any).mockResolvedValue([-0.1, -0.1, -0.1]);
 
         const results = await searchTools(registry, 'something completely different');
         expect(results.length).toBe(0);

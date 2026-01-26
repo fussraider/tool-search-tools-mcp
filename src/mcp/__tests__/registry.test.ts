@@ -113,6 +113,28 @@ describe('MCPRegistry', () => {
         expect(registry.tools[0].embedding).toEqual([0.4, 0.5, 0.6]);
     });
 
+    it('should NOT generate embeddings when mode is NOT vector', async () => {
+        delete process.env.MCP_SEARCH_MODE;
+        const registry = new MCPRegistry();
+        const mockClient = {
+            listTools: vi.fn().mockResolvedValue({
+                tools: [
+                    {
+                        name: 'tool1',
+                        description: 'desc1',
+                        inputSchema: {type: 'object', properties: {}}
+                    }
+                ]
+            })
+        } as any;
+
+        await registry.registerToolsFromClient('test-server', mockClient, 'test-hash');
+
+        expect(embeddingService.generateEmbedding).not.toHaveBeenCalled();
+        expect(embeddingService.getCachedEmbeddings).not.toHaveBeenCalled();
+        expect(registry.tools[0].embedding).toBeUndefined();
+    });
+
     it('should handle tools without inputSchema', () => {
         const registry = new MCPRegistry();
         const tool = {

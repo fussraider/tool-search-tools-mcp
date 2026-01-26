@@ -6,7 +6,7 @@ import type {FuseResult} from "fuse.js"
 import Fuse from "fuse.js"
 
 const DEFAULT_LIMIT = 5;
-const VECTOR_THRESHOLD = 0.5; // Минимальная схожесть для векторного поиска (примерно)
+const VECTOR_THRESHOLD = 0.35; // Минимальная схожесть для векторного поиска (примерно)
 
 const searchLogger = logger.child("Search")
 
@@ -15,7 +15,7 @@ const searchLogger = logger.child("Search")
  * Оптимизировано для нормализованных векторов (каковыми являются векторы из embeddingService).
  * Если векторы нормализованы, косинусное сходство равно их скалярному произведению.
  */
-function cosineSimilarity(a: Float32Array | number[], b: Float32Array | number[]): number {
+export function cosineSimilarity(a: Float32Array | number[], b: Float32Array | number[]): number {
     let dotProduct = 0;
 
     for (let i = 0; i < a.length; i++) {
@@ -24,21 +24,43 @@ function cosineSimilarity(a: Float32Array | number[], b: Float32Array | number[]
     return dotProduct;
 }
 
+/**
+ * Старая реализация косинусного сходства (для сравнения).
+ * Вычисляет полную формулу: (a · b) / (||a|| * ||b||)
+ */
+export function cosineSimilarityOld(a: Float32Array | number[], b: Float32Array | number[]): number {
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < a.length; i++) {
+        dotProduct += a[i] * b[i];
+        normA += a[i] * a[i];
+        normB += b[i] * b[i];
+    }
+
+    if (normA === 0 || normB === 0) return 0;
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
 async function vectorSearch(
     tools: ReadonlyArray<MCPTool>,
     query: string,
     limit: number
 ): Promise<MCPTool[]> {
+    searchLogger.debug(`Performing vector search for: "${query}"`)
     const queryEmbedding = await embeddingService.generateEmbedding(query);
     const results = tools
         .filter(tool => tool.embedding)
-        .map(tool => ({
-            tool,
-            score: cosineSimilarity(queryEmbedding, tool.embedding!)
-        }))
+        .map(tool => {
+            const score = cosineSimilarity(queryEmbedding, tool.embedding!)
+            searchLogger.debug(`Tool ${tool.name}: score=${score.toFixed(4)}`)
+            return { tool, score }
+        })
         .filter(r => r.score > VECTOR_THRESHOLD)
         .sort((a, b) => b.score - a.score);
 
+    searchLogger.debug(`Vector search found ${results.length} results above threshold ${VECTOR_THRESHOLD}`)
     return results.slice(0, limit).map(r => r.tool);
 }
 
@@ -47,6 +69,7 @@ function fuzzySearch(
     query: string,
     limit: number
 ): MCPTool[] {
+    searchLogger.debug(`Performing fuzzy search for: "${query}"`)
     const fuse = new Fuse(tools, {
         keys: [
             {name: "name", weight: 0.5},
@@ -137,7 +160,7 @@ export async function searchTools(
     const startTime = performance.now()
     const q = query.toLowerCase()
     const mode = process.env.MCP_SEARCH_MODE || 'fuse'
-    searchLogger.debug(`Searching for "${q}" in ${registry.tools.length} tools using ${mode} mode`)
+    searchLogger.info(`Searching for "${q}" in ${registry.tools.length} tools using ${mode} mode`)
 
     let finalResults: MCPTool[] = []
 

@@ -65,6 +65,16 @@ pnpm build # or npm run build, yarn build
 pnpm start # or npm start, yarn start
 ```
 
+### CLI Testing Utility
+
+You can test the tool search directly from the command line:
+
+```bash
+pnpm search_tools "list directory contents"
+```
+
+This will connect to all servers defined in your `mcp-config.json`, load their tools, and display the search results in your terminal.
+
 ### Connecting to Claude Desktop or Other Clients
 
 Add this server to your MCP client configuration. For example, for Claude Desktop:

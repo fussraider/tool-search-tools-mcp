@@ -79,7 +79,8 @@ export class MCPRegistry {
         const {tools} = ListToolsResultSchema.parse(result)
         const mcpLogger = logger.child(`MCP:${serverName}`);
 
-        const cachedEmbeddings = serverHash ? await embeddingService.getCachedEmbeddings(serverHash) : null;
+        const isVectorMode = process.env.MCP_SEARCH_MODE === 'vector';
+        const cachedEmbeddings = (serverHash && isVectorMode) ? await embeddingService.getCachedEmbeddings(serverHash) : null;
         const currentEmbeddings: Record<string, Float32Array | number[]> = {...cachedEmbeddings};
         const newEmbeddingsCount = {value: 0};
 
@@ -87,9 +88,9 @@ export class MCPRegistry {
             mcpLogger.debug(`Registering tool: ${tool.name}`)
 
             const keywords = this.extractToolKeywords(tool)
-            let embedding = cachedEmbeddings ? cachedEmbeddings[tool.name] : undefined;
+            let embedding = (cachedEmbeddings && isVectorMode) ? cachedEmbeddings[tool.name] : undefined;
 
-            if (!embedding && process.env.MCP_SEARCH_MODE === 'vector') {
+            if (!embedding && isVectorMode) {
                 try {
                     const textToEmbed = `${tool.name} ${tool.description ?? ""} ${keywords.join(" ")}`;
                     embedding = await embeddingService.generateEmbedding(textToEmbed);
@@ -113,7 +114,7 @@ export class MCPRegistry {
             })
         }
 
-        if (process.env.MCP_SEARCH_MODE === 'vector' && Object.keys(currentEmbeddings).length > 0) {
+        if (Object.keys(currentEmbeddings).length > 0) {
             const memoryUsage = EmbeddingService.calculateMemoryUsage(currentEmbeddings);
             mcpLogger.info(`Embeddings stats: ${Object.keys(currentEmbeddings).length} total tools, ${newEmbeddingsCount.value} newly generated. Approx. ${EmbeddingService.formatBytes(memoryUsage)} in memory`);
         }
