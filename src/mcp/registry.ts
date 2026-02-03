@@ -89,7 +89,7 @@ export class MCPRegistry {
         const currentEmbeddings: Record<string, Float32Array | number[]> = {...cachedEmbeddings};
         const newEmbeddingsCount = {value: 0};
 
-        for (const tool of tools) {
+        const toolPromises = tools.map(async (tool) => {
             mcpLogger.debug(`Registering tool: ${tool.name}`)
 
             const keywords = this.extractToolKeywords(tool)
@@ -102,7 +102,12 @@ export class MCPRegistry {
                     logger: mcpLogger
                 }
             );
+            return {tool, keywords, embedding, isNew};
+        });
 
+        const results = await Promise.all(toolPromises);
+
+        for (const {tool, keywords, embedding, isNew} of results) {
             if (embedding) {
                 currentEmbeddings[tool.name] = embedding;
                 if (isNew) newEmbeddingsCount.value++;
