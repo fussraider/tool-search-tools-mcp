@@ -1,10 +1,13 @@
+const SPECIAL_CHARS_REGEX = /[^\w\sа-яё]/gi;
+const WHITESPACE_REGEX = /\s+/g;
+
 /**
  * Очищает текст от спецсимволов и приводит к нижнему регистру
  */
 export function normalizeText(text: string): string {
     return text.toLowerCase()
-        .replace(/[^\w\sа-яё]/gi, ' ') // Поддержка кириллицы
-        .replace(/\s+/g, ' ')
+        .replace(SPECIAL_CHARS_REGEX, ' ') // Поддержка кириллицы
+        .replace(WHITESPACE_REGEX, ' ')
         .trim();
 }
 
