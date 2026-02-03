@@ -11,6 +11,7 @@ const DEFAULT_MODEL = 'Xenova/all-MiniLM-L6-v2';
 
 export class EmbeddingService {
     private pipeline: FeatureExtractionPipeline | null = null;
+    private pipelinePromise: Promise<FeatureExtractionPipeline> | null = null;
     private modelName: string;
     private logger = logger.child('EmbeddingService');
 
@@ -19,12 +20,23 @@ export class EmbeddingService {
     }
 
     private async getPipeline(): Promise<FeatureExtractionPipeline> {
-        if (!this.pipeline) {
-            this.logger.info(`Loading embedding model: ${this.modelName}`);
-            this.pipeline = await pipeline('feature-extraction', this.modelName);
-            this.logger.debug(`Embedding model ${this.modelName} loaded successfully`);
+        if (this.pipeline) return this.pipeline;
+
+        if (!this.pipelinePromise) {
+            this.pipelinePromise = (async () => {
+                try {
+                    this.logger.info(`Loading embedding model: ${this.modelName}`);
+                    const p = await pipeline('feature-extraction', this.modelName);
+                    this.logger.debug(`Embedding model ${this.modelName} loaded successfully`);
+                    this.pipeline = p;
+                    return p;
+                } catch (error) {
+                    this.pipelinePromise = null;
+                    throw error;
+                }
+            })();
         }
-        return this.pipeline;
+        return this.pipelinePromise;
     }
 
     async generateEmbedding(text: string): Promise<Float32Array> {
