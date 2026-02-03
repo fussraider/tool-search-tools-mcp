@@ -46,6 +46,10 @@ export class Logger {
         }
     }
 
+    public isDebugEnabled(): boolean {
+        return this.level <= LogLevel.DEBUG;
+    }
+
     public child(scope: string): Logger {
         const child = new Logger(scope);
         child.level = this.level;

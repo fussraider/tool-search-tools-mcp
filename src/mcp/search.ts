@@ -57,7 +57,9 @@ async function vectorSearch(
     for (const tool of tools) {
         if (tool.embedding) {
             const score = cosineSimilarity(queryEmbedding, tool.embedding)
-            searchLogger.debug(`Tool ${tool.name}: score=${score.toFixed(4)}`)
+            if (searchLogger.isDebugEnabled()) {
+                searchLogger.debug(`Tool ${tool.name}: score=${score.toFixed(4)}`)
+            }
             if (score > VECTOR_THRESHOLD) {
                 results.push({ tool, score })
             }
