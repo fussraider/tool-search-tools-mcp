@@ -138,16 +138,23 @@ function sortFuzzyResults(results: FuseResult<MCPTool>[], query: string): FuseRe
 
     searchLogger.debug(`Sorting results by match count for words: ${queryWords.join(", ")}`)
 
-    return [...results].sort((a, b) => {
-        const weightA = getMatchWeight(a.item, queryWords)
-        const weightB = getMatchWeight(b.item, queryWords)
+    const resultsWithWeights = results.map(result => ({
+        result,
+        weight: getMatchWeight(result.item, queryWords)
+    }));
+
+    resultsWithWeights.sort((a, b) => {
+        const weightA = a.weight
+        const weightB = b.weight
 
         if (Math.abs(weightA - weightB) > 0.1) {
             return weightB - weightA
         }
 
-        return (a.score ?? 1) - (b.score ?? 1)
+        return (a.result.score ?? 1) - (b.result.score ?? 1)
     })
+
+    return resultsWithWeights.map(rw => rw.result)
 }
 
 function getMatchWeight(tool: MCPTool, queryWords: string[]): number {
