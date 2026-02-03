@@ -197,4 +197,23 @@ describe('MCPRegistry', () => {
         expect(tool).toBeDefined();
         expect(tool?.embedding).toBeUndefined(); // Should still be registered, but without embedding
     });
+
+    it('should update updatedAt timestamp when tools are registered', async () => {
+        const registry = new MCPRegistry();
+        const initialUpdatedAt = registry.updatedAt;
+
+        expect(initialUpdatedAt).toBe(0);
+
+        const mockClient = {
+            listTools: vi.fn().mockResolvedValue({
+                tools: [
+                    { name: 'new-tool', description: 'New tool', inputSchema: { type: 'object' } }
+                ]
+            })
+        } as any;
+
+        await registry.registerToolsFromClient('test-server', mockClient);
+
+        expect(registry.updatedAt).toBeGreaterThan(initialUpdatedAt);
+    });
 });
