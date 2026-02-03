@@ -107,11 +107,16 @@ function fuzzySearch(
     // Если по всей фразе не нашли, попробуем по отдельным словам и объединим
     if (results.length < limit) {
         const words = tokenize(query);
+        const seen = new Set<string>();
+        results.forEach(r => seen.add(`${r.item.server}:${r.item.name}`));
+
         for (const word of words) {
             const wordResults = fuse.search(word)
             // Добавляем новые результаты, которых еще нет
             wordResults.forEach(wr => {
-                if (!results.find(r => r.item.name === wr.item.name && r.item.server === wr.item.server)) {
+                const key = `${wr.item.server}:${wr.item.name}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
                     results.push(wr)
                 }
             })
