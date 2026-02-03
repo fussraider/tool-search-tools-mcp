@@ -66,8 +66,9 @@ export class EmbeddingService {
             await fileHandle.write('{');
 
             const keys = Object.keys(embeddings);
-            let buffer = '';
-            const BUFFER_SIZE = 64 * 1024; // 64KB
+            const chunks: string[] = [];
+            let currentChunkSize = 0;
+            const BUFFER_SIZE = 1024 * 1024; // 1MB
 
             for (let i = 0; i < keys.length; i++) {
                 const key = keys[i];
@@ -76,20 +77,22 @@ export class EmbeddingService {
                 const arrayValue = Array.from(value);
 
                 const entry = `${JSON.stringify(key)}:${JSON.stringify(arrayValue)}`;
-                buffer += entry;
+                chunks.push(entry);
+                currentChunkSize += entry.length;
 
-                if (i < keys.length - 1) {
-                    buffer += ',';
-                }
+                if (currentChunkSize >= BUFFER_SIZE) {
+                    await fileHandle.write(chunks.join(','));
+                    chunks.length = 0;
+                    currentChunkSize = 0;
 
-                if (buffer.length >= BUFFER_SIZE) {
-                    await fileHandle.write(buffer);
-                    buffer = '';
+                    if (i < keys.length - 1) {
+                        await fileHandle.write(',');
+                    }
                 }
             }
 
-            if (buffer.length > 0) {
-                await fileHandle.write(buffer);
+            if (chunks.length > 0) {
+                await fileHandle.write(chunks.join(','));
             }
 
             await fileHandle.write('}');
