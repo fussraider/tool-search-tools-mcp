@@ -88,19 +88,19 @@ export class MCPRegistry {
             mcpLogger.debug(`Registering tool: ${tool.name}`)
 
             const keywords = this.extractToolKeywords(tool)
-            let embedding = (cachedEmbeddings && isVectorMode) ? cachedEmbeddings[tool.name] : undefined;
-
-            if (!embedding && isVectorMode) {
-                try {
-                    const textToEmbed = `${tool.name} ${tool.description ?? ""} ${keywords.join(" ")}`;
-                    embedding = await embeddingService.generateEmbedding(textToEmbed);
-                    currentEmbeddings[tool.name] = embedding;
-                    newEmbeddingsCount.value++;
-                } catch (error) {
-                    mcpLogger.error(`Failed to generate embedding for tool ${tool.name}: ${error}`);
+            const {embedding, isNew} = await this.getOrGenerateEmbedding(
+                tool,
+                keywords,
+                {
+                    cachedEmbeddings,
+                    isVectorMode,
+                    logger: mcpLogger
                 }
-            } else if (embedding) {
+            );
+
+            if (embedding) {
                 currentEmbeddings[tool.name] = embedding;
+                if (isNew) newEmbeddingsCount.value++;
             }
 
             this._tools.push({
@@ -124,6 +124,33 @@ export class MCPRegistry {
         }
 
         mcpLogger.info(`Registered ${tools.length} tools`)
+    }
+
+    private async getOrGenerateEmbedding(
+        tool: any,
+        keywords: string[],
+        options: {
+            cachedEmbeddings: Record<string, Float32Array | number[]> | null,
+            isVectorMode: boolean,
+            logger: any
+        }
+    ): Promise<{ embedding?: Float32Array | number[], isNew: boolean }> {
+        const {cachedEmbeddings, isVectorMode, logger} = options;
+        if (!isVectorMode) return {isNew: false};
+
+        let embedding = cachedEmbeddings ? cachedEmbeddings[tool.name] : undefined;
+        let isNew = false;
+
+        if (!embedding) {
+            try {
+                const textToEmbed = `${tool.name} ${tool.description ?? ""} ${keywords.join(" ")}`;
+                embedding = await embeddingService.generateEmbedding(textToEmbed);
+                isNew = true;
+            } catch (error) {
+                logger.error(`Failed to generate embedding for tool ${tool.name}: ${error}`);
+            }
+        }
+        return {embedding, isNew};
     }
 
     private extractToolKeywords(tool: any): string[] {
