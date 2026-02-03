@@ -56,22 +56,49 @@ export class EmbeddingService {
     }
 
     async saveEmbeddingsToCache(serverHash: string, embeddings: Record<string, Float32Array | number[]>) {
+        let fileHandle;
         try {
             await fs.mkdir(CACHE_DIR, {recursive: true});
             const cachePath = path.join(CACHE_DIR, `${serverHash}.json`);
             this.logger.debug(`Saving ${Object.keys(embeddings).length} embeddings to cache: ${cachePath}`);
-            
-            // Преобразуем Float32Array в обычные массивы перед сериализацией,
-            // так как JSON.stringify может превращать их в объекты вида {"0":...} в некоторых окружениях
-            // или некорректно обрабатывать, если мы полагаемся на то что они ведут себя как массивы.
-            const plainEmbeddings: Record<string, number[]> = {};
-            for (const [key, value] of Object.entries(embeddings)) {
-                plainEmbeddings[key] = Array.from(value);
+
+            fileHandle = await fs.open(cachePath, 'w');
+            await fileHandle.write('{');
+
+            const keys = Object.keys(embeddings);
+            let buffer = '';
+            const BUFFER_SIZE = 64 * 1024; // 64KB
+
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                const value = embeddings[key];
+                // Преобразуем Float32Array в обычные массивы перед сериализацией
+                const arrayValue = Array.from(value);
+
+                const entry = `${JSON.stringify(key)}:${JSON.stringify(arrayValue)}`;
+                buffer += entry;
+
+                if (i < keys.length - 1) {
+                    buffer += ',';
+                }
+
+                if (buffer.length >= BUFFER_SIZE) {
+                    await fileHandle.write(buffer);
+                    buffer = '';
+                }
             }
-            
-            await fs.writeFile(cachePath, JSON.stringify(plainEmbeddings));
+
+            if (buffer.length > 0) {
+                await fileHandle.write(buffer);
+            }
+
+            await fileHandle.write('}');
         } catch (error) {
             this.logger.error(`Failed to save embeddings cache: ${error}`);
+        } finally {
+            if (fileHandle) {
+                await fileHandle.close();
+            }
         }
     }
 
