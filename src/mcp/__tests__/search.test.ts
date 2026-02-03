@@ -13,6 +13,7 @@ describe('searchTools', () => {
     const mockClient = {} as any;
 
     const mockRegistry = {
+        updatedAt: Date.now(),
         tools: [
             {
                 name: 'get_weather',

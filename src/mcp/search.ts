@@ -10,6 +10,8 @@ const VECTOR_THRESHOLD = 0.35; // Минимальная схожесть для
 
 const searchLogger = logger.child("Search")
 
+const fuseCache = new WeakMap<MCPRegistry, { instance: Fuse<MCPTool>, updatedAt: number }>();
+
 /**
  * Вычисляет косинусное сходство между двумя векторами.
  * Оптимизировано для нормализованных векторов (каковыми являются векторы из embeddingService).
@@ -69,24 +71,33 @@ async function vectorSearch(
 }
 
 function fuzzySearch(
-    tools: ReadonlyArray<MCPTool>,
+    registry: MCPRegistry,
     query: string,
     limit: number
 ): MCPTool[] {
     searchLogger.debug(`Performing fuzzy search for: "${query}"`)
-    const fuse = new Fuse(tools, {
-        keys: [
-            {name: "name", weight: 0.5},
-            {name: "description", weight: 0.3},
-            {name: "schemaKeywords", weight: 0.15},
-            {name: "server", weight: 0.05}
-        ],
-        threshold: 0.4,
-        includeScore: true,
-        useExtendedSearch: false,
-        ignoreLocation: true,
-        findAllMatches: true
-    })
+
+    let fuse: Fuse<MCPTool>;
+    const cached = fuseCache.get(registry);
+
+    if (cached && cached.updatedAt === registry.updatedAt) {
+        fuse = cached.instance;
+    } else {
+        fuse = new Fuse(registry.tools, {
+            keys: [
+                {name: "name", weight: 0.5},
+                {name: "description", weight: 0.3},
+                {name: "schemaKeywords", weight: 0.15},
+                {name: "server", weight: 0.05}
+            ],
+            threshold: 0.4,
+            includeScore: true,
+            useExtendedSearch: false,
+            ignoreLocation: true,
+            findAllMatches: true
+        });
+        fuseCache.set(registry, { instance: fuse, updatedAt: registry.updatedAt });
+    }
 
     let results = fuse.search(query)
     searchLogger.debug(`Fuzzy search for "${query}" found ${results.length} results`)
@@ -171,7 +182,7 @@ export async function searchTools(
     if (mode === 'vector') {
         finalResults = await vectorSearch(registry.tools, q, limit)
     } else {
-        finalResults = fuzzySearch(registry.tools, q, limit)
+        finalResults = fuzzySearch(registry, q, limit)
     }
 
     const duration = performance.now() - startTime
