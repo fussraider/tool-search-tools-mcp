@@ -62,4 +62,34 @@ describe('EmbeddingService Cache Management', () => {
         expect(files).not.toContain(`${unusedHash}.json`);
         expect(files).toContain(`other-file.txt`); // Should not touch non-json files
     });
+
+    it('should save embeddings to cache correctly', async () => {
+        const hash = 'test-save-hash';
+        const embeddings = {
+            'key1': new Float32Array([0.1, 0.2]),
+            'key2': [0.3, 0.4]
+        };
+
+        await embeddingService.saveEmbeddingsToCache(hash, embeddings);
+
+        const cachePath = path.join(CACHE_DIR, `${hash}.json`);
+        const content = await fs.readFile(cachePath, 'utf-8');
+        const loaded = JSON.parse(content);
+
+        expect(loaded).toHaveProperty('key1');
+        expect(loaded).toHaveProperty('key2');
+        // Float32Array precision might cause tiny diffs if we are not careful, but for 0.1, 0.2 it is usually fine in JS doubles
+        // Actually Float32Array(0.1) is not exactly 0.1 double.
+        // So we should expect closeTo if strict equality fails.
+        // But JSON.stringify(float32array) uses normal string conversion of the stored float values.
+
+        // Let's verify what happens.
+        // Float32Array([0.1])[0] -> 0.10000000149011612
+        // JSON.stringify will output that long number or close to it.
+        // When parsed back, it should be the same number.
+
+        expect(loaded['key1'][0]).toBeCloseTo(0.1);
+        expect(loaded['key1'][1]).toBeCloseTo(0.2);
+        expect(loaded['key2']).toEqual([0.3, 0.4]);
+    });
 });
