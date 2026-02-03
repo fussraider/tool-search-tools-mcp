@@ -146,4 +146,55 @@ describe('MCPRegistry', () => {
         expect(keywords).toContain('schema');
         expect(keywords).not.toContain(undefined);
     });
+
+    it('should handle partial cache hits (mix of cached and new tools)', async () => {
+        process.env.MCP_SEARCH_MODE = 'vector';
+        const registry = new MCPRegistry();
+        const mockClient = {
+            listTools: vi.fn().mockResolvedValue({
+                tools: [
+                    { name: 'cached-tool', description: 'Cached tool', inputSchema: { type: 'object' } },
+                    { name: 'new-tool', description: 'New tool', inputSchema: { type: 'object' } }
+                ]
+            })
+        } as any;
+
+        const mockCache = {'cached-tool': [0.1, 0.1, 0.1]};
+        (embeddingService.getCachedEmbeddings as any).mockResolvedValue(mockCache);
+        (embeddingService.generateEmbedding as any).mockResolvedValue([0.2, 0.2, 0.2]);
+
+        await registry.registerToolsFromClient('test-server', mockClient, 'test-hash');
+
+        // Check cached tool
+        const cachedTool = registry.tools.find(t => t.name === 'cached-tool');
+        expect(cachedTool?.embedding).toEqual([0.1, 0.1, 0.1]);
+
+        // Check new tool
+        const newTool = registry.tools.find(t => t.name === 'new-tool');
+        expect(newTool?.embedding).toEqual([0.2, 0.2, 0.2]);
+
+        // Should call generate only once
+        expect(embeddingService.generateEmbedding).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle embedding generation errors gracefully', async () => {
+        process.env.MCP_SEARCH_MODE = 'vector';
+        const registry = new MCPRegistry();
+        const mockClient = {
+            listTools: vi.fn().mockResolvedValue({
+                tools: [
+                    { name: 'broken-tool', description: 'Broken tool', inputSchema: { type: 'object' } }
+                ]
+            })
+        } as any;
+
+        (embeddingService.getCachedEmbeddings as any).mockResolvedValue(null);
+        (embeddingService.generateEmbedding as any).mockRejectedValue(new Error('API error'));
+
+        await registry.registerToolsFromClient('test-server', mockClient, 'test-hash');
+
+        const tool = registry.tools.find(t => t.name === 'broken-tool');
+        expect(tool).toBeDefined();
+        expect(tool?.embedding).toBeUndefined(); // Should still be registered, but without embedding
+    });
 });
