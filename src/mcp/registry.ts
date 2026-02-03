@@ -18,9 +18,14 @@ export type MCPTool = {
 
 export class MCPRegistry {
     private _tools: MCPTool[] = []
+    private _updatedAt: number = 0
 
     get tools(): ReadonlyArray<MCPTool> {
         return this._tools
+    }
+
+    get updatedAt(): number {
+        return this._updatedAt
     }
 
     async connectServer(
@@ -123,6 +128,7 @@ export class MCPRegistry {
             await embeddingService.saveEmbeddingsToCache(serverHash, currentEmbeddings);
         }
 
+        this._updatedAt = Date.now()
         mcpLogger.info(`Registered ${tools.length} tools`)
     }
 
