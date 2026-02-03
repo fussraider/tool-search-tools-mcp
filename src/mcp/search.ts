@@ -50,15 +50,19 @@ async function vectorSearch(
 ): Promise<MCPTool[]> {
     searchLogger.debug(`Performing vector search for: "${query}"`)
     const queryEmbedding = await embeddingService.generateEmbedding(query);
-    const results = tools
-        .filter(tool => tool.embedding)
-        .map(tool => {
-            const score = cosineSimilarity(queryEmbedding, tool.embedding!)
+    const results: { tool: MCPTool, score: number }[] = [];
+
+    for (const tool of tools) {
+        if (tool.embedding) {
+            const score = cosineSimilarity(queryEmbedding, tool.embedding)
             searchLogger.debug(`Tool ${tool.name}: score=${score.toFixed(4)}`)
-            return { tool, score }
-        })
-        .filter(r => r.score > VECTOR_THRESHOLD)
-        .sort((a, b) => b.score - a.score);
+            if (score > VECTOR_THRESHOLD) {
+                results.push({ tool, score })
+            }
+        }
+    }
+
+    results.sort((a, b) => b.score - a.score);
 
     searchLogger.debug(`Vector search found ${results.length} results above threshold ${VECTOR_THRESHOLD}`)
     return results.slice(0, limit).map(r => r.tool);
