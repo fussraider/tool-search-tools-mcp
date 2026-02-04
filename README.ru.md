@@ -139,8 +139,33 @@ pnpm search_tools "list directory contents"
 }
 ```
 
+### Настройка Навыков (Макросов)
+
+Вы можете определять пользовательские «навыки» (skills), которые объединяют несколько вызовов инструментов в одну операцию. Создайте файл `skills.yaml` (по умолчанию в корне проекта, или укажите путь в `MCP_SKILLS_PATH`).
+
+Пример `skills.yaml`:
+```yaml
+skills:
+  - name: "research_topic"
+    description: "Searches for a topic and saves the summary to a file"
+    parameters:
+      topic: string
+    steps:
+      - tool: "search_google" # Tool from another connected server
+        args:
+          query: "{{topic}}"
+        result_var: "search_result"
+      - tool: "write_file"
+        args:
+          path: "./research/{{topic}}.txt"
+          content: "{{search_result}}"
+```
+
+Эти навыки будут отображаться как обычные инструменты в результатах поиска и могут быть вызваны LLM.
+
 ### Переменные окружения
 *   `MCP_CONFIG_PATH`: Путь к файлу конфигурации (по умолчанию `mcp-config.json` в директории проекта).
+*   `MCP_SKILLS_PATH`: Путь к файлу определения навыков (по умолчанию `skills.yaml` в директории проекта).
 *   `LOG_LEVEL`: Уровень логирования (`DEBUG`, `INFO`, `WARN`, `ERROR`). По умолчанию `INFO`.
 *   `LOG_FILE_PATH`: Путь к файлу для записи логов. Если не задан, логи выводятся в `stderr`.
 *   `LOG_SHOW_TIMESTAMP`: Включает отображение даты и времени в логах. По умолчанию `false`. Поддерживаемые значения для включения: `true`, `1`, `yes` (регистронезависимо).
@@ -218,6 +243,7 @@ pnpm install
     *   `embeddings.ts` — Сервис для генерации и кэширования векторных эмбеддингов.
     *   `text.ts` — Утилиты для нормализации и обработки текста.
 *   `mcp-config.json` — Файл конфигурации со списком подключенных MCP-серверов.
+*   `skills.yaml` — Файл конфигурации для определения пользовательских навыков.
 
 ## Лицензия
 
