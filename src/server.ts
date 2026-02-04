@@ -4,6 +4,7 @@ import {MCPRegistry} from "./mcp/registry.js"
 import {searchTools} from "./mcp/search.js"
 import {executeTool} from "./mcp/executor.js"
 import {embeddingService, EmbeddingService} from "./utils/embeddings.js"
+import { loadSkillsConfig } from "./mcp/skills.js"
 import fs from "fs"
 import fsPromises from "fs/promises"
 import path from "path"
@@ -30,6 +31,7 @@ export class ToolSearchToolsMcpServer {
     public async start() {
         try {
             await this.loadConfig()
+            await this.loadSkills()
             this.registerInternalTools()
 
             const transport = new StdioServerTransport()
@@ -38,6 +40,28 @@ export class ToolSearchToolsMcpServer {
         } catch (error) {
             this.logger.error("Failed to start server:", error)
             process.exit(1)
+        }
+    }
+
+    private async loadSkills() {
+        const skillsPath = process.env.MCP_SKILLS_PATH || path.resolve(__dirname, "../skills.yaml");
+        this.logger.info(`Checking for skills at ${skillsPath}`);
+
+        try {
+            await fsPromises.access(skillsPath);
+        } catch {
+             this.logger.debug("No skills file found, skipping skills loading.");
+             return;
+        }
+
+        try {
+            const skills = await loadSkillsConfig(skillsPath);
+            for (const skill of skills) {
+                await this.registry.registerSkill(skill);
+            }
+            this.logger.info(`Registered ${skills.length} skills`);
+        } catch (error) {
+            this.logger.error(`Failed to load skills:`, error);
         }
     }
 
@@ -149,7 +173,7 @@ export class ToolSearchToolsMcpServer {
             }
 
             try {
-                const result = await executeTool(tool, args || {})
+                const result = await executeTool(tool, args || {}, this.registry)
                 return result as any
             } catch (error) {
                 this.logger.error(`Error executing tool ${toolName}:`, error)

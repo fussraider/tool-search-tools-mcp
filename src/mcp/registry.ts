@@ -5,6 +5,7 @@ import {logger} from "../utils/logger.js"
 import {embeddingService, EmbeddingService} from "../utils/embeddings.js"
 import {extractKeywords, tokenize} from "../utils/text.js"
 import {Readable} from "stream"
+import { Skill, SkillStep } from "./skills.js"
 
 export type MCPTool = {
     server: string
@@ -12,8 +13,10 @@ export type MCPTool = {
     description: string
     schema: any
     schemaKeywords?: string
-    client: Client
+    client?: Client
     embedding?: Float32Array | number[]
+    isSkill?: boolean
+    steps?: SkillStep[]
 }
 
 export class MCPRegistry {
@@ -135,6 +138,50 @@ export class MCPRegistry {
 
         this._updatedAt = Date.now()
         mcpLogger.info(`Registered ${tools.length} tools`)
+    }
+
+    public async registerSkill(skill: Skill) {
+        const mcpLogger = logger.child(`MCP:Skills`);
+        mcpLogger.debug(`Registering skill: ${skill.name}`);
+
+        const keywords = this.extractToolKeywords({
+            name: skill.name,
+            description: skill.description,
+            inputSchema: { properties: skill.parameters }
+        });
+
+        const isVectorMode = process.env.MCP_SEARCH_MODE === 'vector';
+        // For skills, we probably don't cache embeddings the same way as servers,
+        // or we treat "Skills" as a virtual server for caching?
+        // For simplicity, let's generate embedding every time or skip caching for now.
+        // Actually, we can reuse getOrGenerateEmbedding if we treat it properly.
+        // But skills are usually few.
+
+        let embedding: Float32Array | number[] | undefined;
+        if (isVectorMode) {
+            const textToEmbed = `${skill.name} ${skill.description} ${keywords.join(" ")}`;
+            try {
+                embedding = await embeddingService.generateEmbedding(textToEmbed);
+            } catch (e) {
+                mcpLogger.error(`Failed to generate embedding for skill ${skill.name}`, e);
+            }
+        }
+
+        this._tools.push({
+            server: "internal", // or 'skills'
+            name: skill.name,
+            description: skill.description,
+            schema: {
+                type: "object",
+                properties: skill.parameters
+            },
+            schemaKeywords: keywords.join(" "),
+            isSkill: true,
+            steps: skill.steps,
+            embedding
+        });
+
+        this._updatedAt = Date.now();
     }
 
     private async getOrGenerateEmbedding(

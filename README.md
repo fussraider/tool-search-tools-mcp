@@ -32,6 +32,7 @@ Modern LLMs (e.g., Claude) have context limits. When you connect multiple MCP se
 * **Aggregation**: Access tools from different MCP servers (e.g., filesystem, git, sqlite) through a single server.
 * **Smart Search**: A dedicated `search_tools` tool for filtering available functions. Uses fuzzy search and considers
   tool names, descriptions, and parameters.
+* **Skills (Macros)**: Define custom composite tools (skills) via YAML that chain multiple tool calls into a single action.
 * **Keyword Generation**: Automatic keyword extraction from tool definitions for improved search accuracy.
 * **Hybrid Search**: Support for both fuzzy search (`fuse.js`) and semantic vector search (`transformers.js`) for better
   understanding of user intent.
@@ -99,6 +100,7 @@ Add this server to your MCP client configuration. For example, for Claude Deskto
       ],
       "env": {
         "MCP_CONFIG_PATH": "/path/to/your/mcp-config.json",
+        "MCP_SKILLS_PATH": "/path/to/your/skills.yaml",
         "MCP_SEARCH_MODE": "vector"
       }
     }
@@ -159,9 +161,34 @@ in the `MCP_CONFIG_PATH` environment variable.
 }
 ```
 
+### Skills Configuration (Macros)
+
+You can define custom "skills" that combine multiple tool calls into a single operation. Create a `skills.yaml` file (default location in project root, or set `MCP_SKILLS_PATH`).
+
+Example `skills.yaml`:
+```yaml
+skills:
+  - name: "research_topic"
+    description: "Searches for a topic and saves the summary to a file"
+    parameters:
+      topic: string
+    steps:
+      - tool: "search_google" # Tool from another connected server
+        args:
+          query: "{{topic}}"
+        result_var: "search_result"
+      - tool: "write_file"
+        args:
+          path: "./research/{{topic}}.txt"
+          content: "{{search_result}}"
+```
+
+These skills will appear as regular tools in search results and can be called by the LLM.
+
 ### Environment Variables
 
 * `MCP_CONFIG_PATH`: Path to the configuration file (default: `mcp-config.json` in the project directory).
+* `MCP_SKILLS_PATH`: Path to the skills definition file (default: `skills.yaml` in the project directory).
 * `LOG_LEVEL`: Logging level (`DEBUG`, `INFO`, `WARN`, `ERROR`). Default: `INFO`.
 * `LOG_FILE_PATH`: Path to the file for writing logs. If not set, logs are output to `stderr`.
 * `LOG_SHOW_TIMESTAMP`: Enables displaying date and time in logs. Default: `false`. Supported values to enable: `true`,
@@ -239,6 +266,7 @@ Yes, you can specify a different model from [Hugging Face](https://huggingface.c
 * `src/cli.ts` — CLI utility for testing tool search directly from the terminal.
 * `src/mcp/` — MCP logic:
     * `registry.ts` — Connection management for other servers, tool extraction, and keyword generation for search.
+    * `skills.ts` — Skills (macros) loading and execution engine.
     * `search.ts` — Fuzzy search algorithm using `fuse.js` and semantic vector search.
     * `executor.ts` — Proxy logic for calling tools on connected servers.
 * `src/utils/` — Utilities:
@@ -246,6 +274,7 @@ Yes, you can specify a different model from [Hugging Face](https://huggingface.c
     * `embeddings.ts` — Service for generating and caching vector embeddings.
     * `text.ts` — Text processing and normalization utilities.
 * `mcp-config.json` — Configuration file for connected MCP servers.
+* `skills.yaml` — Configuration file for defining custom skills.
 
 ## License
 
