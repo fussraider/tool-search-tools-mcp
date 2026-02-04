@@ -1,0 +1,13 @@
+skills:
+  - name: "echo_sequence"
+    description: "A test skill that chains two operations (simulated)"
+    parameters:
+      input:
+        type: string
+        description: "Input string"
+    steps:
+      - tool: "search_tools" # Using internal tool for demonstration
+        args:
+          query: "{{input}}"
+        result_var: "search_res"
+        description: "Search for tools with the input query"
