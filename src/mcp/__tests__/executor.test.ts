@@ -1,5 +1,10 @@
 import {describe, expect, it, vi} from 'vitest';
 import {executeTool} from '../executor.js';
+import { executeSkill } from '../skills.js';
+
+vi.mock('../skills.js', () => ({
+    executeSkill: vi.fn()
+}));
 
 describe('executeTool', () => {
     it('should call callTool on the client with correct parameters', async () => {
@@ -32,5 +37,22 @@ describe('executeTool', () => {
         } as any;
 
         await expect(executeTool(mockTool, {})).rejects.toThrow('Execution failed');
+    });
+
+    it('should execute a skill using executeSkill', async () => {
+        const mockRegistry = {} as any;
+        const mockTool = {
+            name: 'test-skill',
+            isSkill: true,
+            steps: []
+        } as any;
+        const args = { arg1: 'val1' };
+
+        (executeSkill as any).mockResolvedValue({ result: 'skill-result' });
+
+        const result = await executeTool(mockTool, args, mockRegistry);
+
+        expect(executeSkill).toHaveBeenCalledWith(mockTool, args, mockRegistry);
+        expect(result).toEqual({ result: 'skill-result' });
     });
 });

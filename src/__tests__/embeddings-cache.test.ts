@@ -92,4 +92,16 @@ describe('EmbeddingService Cache Management', () => {
         expect(loaded['key1'][1]).toBeCloseTo(0.2);
         expect(loaded['key2']).toEqual([0.3, 0.4]);
     });
+
+    it('should handle errors during cache save', async () => {
+        const hash = 'error-hash';
+        const embeddings = {'key': [1]};
+
+        const openSpy = vi.spyOn(fs, 'open').mockRejectedValue(new Error('Disk full'));
+
+        // Should not throw
+        await embeddingService.saveEmbeddingsToCache(hash, embeddings);
+
+        openSpy.mockRestore();
+    });
 });

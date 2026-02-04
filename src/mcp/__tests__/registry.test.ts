@@ -216,4 +216,32 @@ describe('MCPRegistry', () => {
 
         expect(registry.updatedAt).toBeGreaterThan(initialUpdatedAt);
     });
+
+    it('should register a skill correctly', async () => {
+        const registry = new MCPRegistry();
+        const skill = {
+            name: 'test-skill',
+            description: 'A test skill',
+            parameters: { param1: 'string' },
+            steps: []
+        };
+
+        // Mock generateEmbedding to return a dummy embedding
+        (embeddingService.generateEmbedding as any).mockResolvedValue([0.1, 0.2, 0.3]);
+
+        // Mock process.env to ensure vector mode if needed for embedding generation check,
+        // though registerSkill logic uses env var check.
+        process.env.MCP_SEARCH_MODE = 'vector';
+
+        await registry.registerSkill(skill);
+
+        const registeredSkill = registry.tools.find(t => t.name === 'test-skill');
+        expect(registeredSkill).toBeDefined();
+        expect(registeredSkill?.isSkill).toBe(true);
+        expect(registeredSkill?.description).toBe('A test skill');
+        expect(registeredSkill?.schemaKeywords).toContain('test');
+        expect(registeredSkill?.schemaKeywords).toContain('skill');
+        expect(registeredSkill?.schemaKeywords).toContain('param1');
+        expect(registeredSkill?.embedding).toEqual([0.1, 0.2, 0.3]);
+    });
 });

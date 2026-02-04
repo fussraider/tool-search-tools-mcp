@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { executeSkill, loadSkillsConfig } from '../src/mcp/skills.js';
+import { executeTool } from '../src/mcp/executor.js';
 import { MCPRegistry, MCPTool } from '../src/mcp/registry.js';
 import fs from 'fs/promises';
 import path from 'path';
@@ -126,6 +127,73 @@ skills:
 
             const result = await executeSkill(skill, { val: 'Middle' }, registry);
             expect(result).toEqual({ content: [{ type: 'text', text: 'Echo: Prefix Middle Suffix' }] });
+        });
+
+        it('should throw error if tool not found', async () => {
+             const skill: MCPTool = {
+                name: 'broken_skill',
+                server: 'internal',
+                description: 'Broken skill',
+                schema: {},
+                isSkill: true,
+                steps: [
+                    {
+                        tool: 'non_existent_tool',
+                        args: {},
+                    }
+                ]
+            };
+
+            await expect(executeSkill(skill, {}, registry)).rejects.toThrow('Tool non_existent_tool not found');
+        });
+
+        it('should warn and pick first if multiple tools found', async () => {
+             // Add duplicate tool
+            (registry as any)._tools.push({
+                name: 'echo',
+                server: 'another-server',
+                description: 'Another echo',
+                schema: {},
+                client: {} as any
+            });
+
+             const skill: MCPTool = {
+                name: 'ambiguous_skill',
+                server: 'internal',
+                description: 'Ambiguous skill',
+                schema: {},
+                isSkill: true,
+                steps: [
+                    {
+                        tool: 'echo',
+                        args: { message: 'hi' },
+                    }
+                ]
+            };
+
+            // We just expect it not to throw and to succeed (using the first one found)
+            const result = await executeSkill(skill, {}, registry);
+            expect(result).toBeDefined();
+        });
+
+        it('should fail if a step fails', async () => {
+            (executeTool as any).mockRejectedValueOnce(new Error('Step failed'));
+
+             const skill: MCPTool = {
+                name: 'failing_skill',
+                server: 'internal',
+                description: 'Failing skill',
+                schema: {},
+                isSkill: true,
+                steps: [
+                    {
+                        tool: 'echo',
+                        args: { message: 'hi' },
+                    }
+                ]
+            };
+
+            await expect(executeSkill(skill, {}, registry)).rejects.toThrow('Step failed');
         });
     });
 });
