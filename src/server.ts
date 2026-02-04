@@ -14,7 +14,7 @@ import {logger} from "./utils/logger.js"
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../package.json"), "utf-8"))
 
-class ToolSearchToolsMcpServer {
+export class ToolSearchToolsMcpServer {
     private server: McpServer
     private registry: MCPRegistry
     private logger = logger.child("Server")
@@ -65,11 +65,11 @@ class ToolSearchToolsMcpServer {
                 this.logger.info(`Found ${servers.length} servers in config`)
 
                 const activeHashes = new Set<string>();
-                for (const [name, serverConfig] of servers) {
+                const connectionPromises = servers.map(async ([name, serverConfig]) => {
                     const {command, args, env} = serverConfig as any
                     if (!command) {
                         this.logger.warn(`Skipping server ${name}: missing command`);
-                        continue;
+                        return;
                     }
 
                     const serverHash = EmbeddingService.generateServerHash(name, {command, args, env});
@@ -81,7 +81,9 @@ class ToolSearchToolsMcpServer {
                     } catch (e) {
                         this.logger.error(`Failed to connect to server ${name}:`, e);
                     }
-                }
+                });
+
+                await Promise.all(connectionPromises);
 
                 // Cleanup unused cache files
                 if (process.env.MCP_SEARCH_MODE === 'vector') {
@@ -164,5 +166,7 @@ class ToolSearchToolsMcpServer {
 
 }
 
-const app = new ToolSearchToolsMcpServer()
-await app.start()
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    const app = new ToolSearchToolsMcpServer()
+    await app.start()
+}
