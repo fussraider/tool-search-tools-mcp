@@ -11,6 +11,9 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -27,7 +30,56 @@ jobs:
         run: pnpm install
 
       - name: Run tests
-        run: pnpm test
+        id: test
+        run: pnpm vitest run --reporter=json --outputFile=test-results.json
+        continue-on-error: true
+
+      - name: Report Test Results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            try {
+              const results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+              const success = results.success;
+              const total = results.numTotalTests;
+              const passed = results.numPassedTests;
+              const failed = results.numFailedTests;
+
+              let body = `### Test Results\n\n`;
+              body += `**Status**: ${success ? '✅ Passed' : '❌ Failed'}\n`;
+              body += `**Total**: ${total}\n`;
+              body += `**Passed**: ${passed}\n`;
+              body += `**Failed**: ${failed}\n`;
+
+              if (failed > 0) {
+                body += `\n#### Failed Tests\n`;
+                results.testResults.forEach(suite => {
+                  suite.assertionResults.forEach(test => {
+                    if (test.status === 'failed') {
+                      body += `- **${test.fullName}**\n`;
+                      test.failureMessages.forEach(msg => {
+                        body += `  \`\`\`\n  ${msg}\n  \`\`\`\n`;
+                      });
+                    }
+                  });
+                });
+              }
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            } catch (err) {
+              console.error('Failed to read test results or post comment', err);
+            }
+
+      - name: Fail if tests failed
+        if: steps.test.outcome == 'failure'
+        run: exit 1
 
   build:
     name: Build
