@@ -120,16 +120,16 @@ export class EmbeddingService {
     async cleanupUnusedCache(activeHashes: Set<string>) {
         try {
             const files = await fs.readdir(CACHE_DIR);
-            for (const file of files) {
-                if (file.endsWith('.json')) {
-                    const hash = path.basename(file, '.json');
-                    if (!activeHashes.has(hash)) {
-                        const filePath = path.join(CACHE_DIR, file);
-                        this.logger.info(`Deleting unused cache file: ${file}`);
-                        await fs.unlink(filePath);
-                    }
-                }
-            }
+            const cleanupPromises = files
+                .filter(file => file.endsWith('.json'))
+                .filter(file => !activeHashes.has(path.basename(file, '.json')))
+                .map(async file => {
+                    const filePath = path.join(CACHE_DIR, file);
+                    this.logger.info(`Deleting unused cache file: ${file}`);
+                    await fs.unlink(filePath);
+                });
+
+            await Promise.all(cleanupPromises);
         } catch (error) {
             // Ignore error if directory doesn't exist
             if ((error as any).code !== 'ENOENT') {
