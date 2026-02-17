@@ -62,7 +62,7 @@ function resolveValue(value: any, context: Record<string, any>): any {
         // Simple regex to replace {{variable}}
         // Handles full string replacement: "{{var}}" -> value
         // And partial: "prefix {{var}} suffix" -> "prefix value suffix"
-        if (value.startsWith('{{') && value.endsWith('}}') && value.split('{{').length === 2) {
+        if (value.startsWith('{{') && value.endsWith('}}') && value.indexOf('{{', 2) === -1) {
              const key = value.slice(2, -2).trim();
              return context[key] !== undefined ? context[key] : value;
         }
