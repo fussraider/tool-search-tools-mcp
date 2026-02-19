@@ -57,6 +57,8 @@ export async function loadSkillsConfig(path: string): Promise<Skill[]> {
     }
 }
 
+const VARIABLE_REGEX = /\{\{([^}]+)\}\}/g;
+
 function resolveValue(value: any, context: Record<string, any>): any {
     if (typeof value === 'string') {
         // Simple regex to replace {{variable}}
@@ -67,7 +69,7 @@ function resolveValue(value: any, context: Record<string, any>): any {
              return context[key] !== undefined ? context[key] : value;
         }
 
-        return value.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
+        return value.replace(VARIABLE_REGEX, (_, key) => {
             const trimmedKey = key.trim();
             const val = context[trimmedKey];
             return val !== undefined ? String(val) : `{{${trimmedKey}}}`;
