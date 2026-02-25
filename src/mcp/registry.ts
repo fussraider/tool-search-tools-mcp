@@ -92,23 +92,28 @@ export class MCPRegistry {
         const currentEmbeddings: Record<string, Float32Array | number[]> = {...cachedEmbeddings};
         const newEmbeddingsCount = {value: 0};
 
-        const toolPromises = tools.map(async (tool) => {
-            mcpLogger.debug(`Registering tool: ${tool.name}`)
+        const results = [];
+        const CONCURRENCY_LIMIT = 10;
 
-            const keywords = this.extractToolKeywords(tool)
-            const {embedding, isNew} = await this.getOrGenerateEmbedding(
-                tool,
-                keywords,
-                {
-                    cachedEmbeddings,
-                    isVectorMode,
-                    logger: mcpLogger
-                }
-            );
-            return {tool, keywords, embedding, isNew};
-        });
+        for (let i = 0; i < tools.length; i += CONCURRENCY_LIMIT) {
+            const batch = tools.slice(i, i + CONCURRENCY_LIMIT);
+            const batchResults = await Promise.all(batch.map(async (tool) => {
+                mcpLogger.debug(`Registering tool: ${tool.name}`)
 
-        const results = await Promise.all(toolPromises);
+                const keywords = this.extractToolKeywords(tool)
+                const {embedding, isNew} = await this.getOrGenerateEmbedding(
+                    tool,
+                    keywords,
+                    {
+                        cachedEmbeddings,
+                        isVectorMode,
+                        logger: mcpLogger
+                    }
+                );
+                return {tool, keywords, embedding, isNew};
+            }));
+            results.push(...batchResults);
+        }
 
         for (const {tool, keywords, embedding, isNew} of results) {
             if (embedding) {
