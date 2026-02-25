@@ -160,7 +160,7 @@ export class ToolSearchToolsMcpServer {
             }
         }, async ({server, toolName, arguments: args}) => {
             this.logger.info(`Executing tool ${toolName} from server ${server}`)
-            const tool = this.registry.tools.find(t => t.server === server && t.name === toolName)
+            const tool = this.registry.getTool(server, toolName)
 
             if (!tool) {
                 return {

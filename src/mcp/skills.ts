@@ -107,7 +107,7 @@ export async function executeSkill(skill: MCPTool, args: any, registry: MCPRegis
         // If not, look for tool with that name (warn if duplicates)
         let tool: MCPTool | undefined;
         if (step.server) {
-            tool = registry.tools.find(t => t.server === step.server && t.name === step.tool);
+            tool = registry.getTool(step.server, step.tool);
         } else {
             const candidates = registry.tools.filter(t => t.name === step.tool);
             if (candidates.length === 0) {
