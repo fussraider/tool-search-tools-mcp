@@ -3,7 +3,7 @@ import {StdioClientTransport} from "@modelcontextprotocol/sdk/client/stdio.js"
 import {ListToolsResultSchema} from "@modelcontextprotocol/sdk/types.js"
 import {logger} from "../utils/logger.js"
 import {embeddingService, EmbeddingService} from "../utils/embeddings.js"
-import {extractKeywords, tokenize} from "../utils/text.js"
+import {extractKeywords, tokenize, normalizeText} from "../utils/text.js"
 import {Readable} from "stream"
 import { Skill, SkillStep } from "./skills.js"
 
@@ -13,6 +13,7 @@ export type MCPTool = {
     description: string
     schema: any
     schemaKeywords?: string
+    normalizedText?: string
     client?: Client
     embedding?: Float32Array | number[]
     isSkill?: boolean
@@ -127,6 +128,7 @@ export class MCPRegistry {
                 description: tool.description ?? "",
                 schema: tool.inputSchema,
                 schemaKeywords: keywords.join(" "),
+                normalizedText: normalizeText(`${tool.name} ${tool.description ?? ""} ${keywords.join(" ")}`),
                 client,
                 embedding
             })
@@ -181,6 +183,7 @@ export class MCPRegistry {
                 properties: skill.parameters
             },
             schemaKeywords: keywords.join(" "),
+            normalizedText: normalizeText(`${skill.name} ${skill.description} ${keywords.join(" ")}`),
             isSkill: true,
             steps: skill.steps,
             embedding
