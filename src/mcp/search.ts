@@ -50,26 +50,54 @@ async function vectorSearch(
     query: string,
     limit: number
 ): Promise<MCPTool[]> {
+    if (limit <= 0) return [];
+
     searchLogger.debug(`Performing vector search for: "${query}"`)
     const queryEmbedding = await embeddingService.generateEmbedding(query);
+
+    // Use a fixed-size sorted array to avoid allocating objects for all results
     const results: { tool: MCPTool, score: number }[] = [];
+    let matchCount = 0;
+    const isDebug = searchLogger.isDebugEnabled();
 
     for (const tool of tools) {
         if (tool.embedding) {
             const score = cosineSimilarity(queryEmbedding, tool.embedding)
-            if (searchLogger.isDebugEnabled()) {
+
+            if (isDebug) {
                 searchLogger.debug(`Tool ${tool.name}: score=${score.toFixed(4)}`)
             }
+
             if (score > VECTOR_THRESHOLD) {
-                results.push({ tool, score })
+                matchCount++;
+
+                // Maintain top K results
+                if (results.length < limit) {
+                    results.push({ tool, score });
+                    // Keep sorted descending
+                    results.sort((a, b) => b.score - a.score);
+                } else if (score > results[results.length - 1].score) {
+                    // New score is better than the worst in our top K
+                    // Replace the last element
+                    results[results.length - 1] = { tool, score };
+
+                    // Re-sort (bubble up the new element to correct position)
+                    for (let i = results.length - 1; i > 0; i--) {
+                        if (results[i].score > results[i - 1].score) {
+                            const temp = results[i];
+                            results[i] = results[i - 1];
+                            results[i - 1] = temp;
+                        } else {
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
 
-    results.sort((a, b) => b.score - a.score);
-
-    searchLogger.debug(`Vector search found ${results.length} results above threshold ${VECTOR_THRESHOLD}`)
-    return results.slice(0, limit).map(r => r.tool);
+    searchLogger.debug(`Vector search found ${matchCount} results above threshold ${VECTOR_THRESHOLD}`)
+    return results.map(r => r.tool);
 }
 
 function fuzzySearch(
