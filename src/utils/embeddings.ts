@@ -19,6 +19,13 @@ export class EmbeddingService {
         this.modelName = process.env.MCP_EMBEDDING_MODEL || DEFAULT_MODEL;
     }
 
+    private isSafeFloat32Array(arr: Float32Array): boolean {
+        for (let i = 0; i < arr.length; i++) {
+            if (!Number.isFinite(arr[i])) return false;
+        }
+        return true;
+    }
+
     private async getPipeline(): Promise<FeatureExtractionPipeline> {
         if (this.pipeline) return this.pipeline;
 
@@ -78,33 +85,52 @@ export class EmbeddingService {
             await fileHandle.write('{');
 
             const keys = Object.keys(embeddings);
-            const chunks: string[] = [];
-            let currentChunkSize = 0;
+            const buffer: string[] = [];
+            let currentBufferSize = 0;
             const BUFFER_SIZE = 1024 * 1024; // 1MB
 
             for (let i = 0; i < keys.length; i++) {
+                if (i > 0) {
+                    buffer.push(',');
+                    currentBufferSize += 1;
+                }
+
                 const key = keys[i];
                 const value = embeddings[key];
-                // Преобразуем Float32Array в обычные массивы перед сериализацией
-                const arrayValue = Array.from(value);
+                const keyStr = JSON.stringify(key);
 
-                const entry = `${JSON.stringify(key)}:${JSON.stringify(arrayValue)}`;
-                chunks.push(entry);
-                currentChunkSize += entry.length;
+                buffer.push(keyStr);
+                buffer.push(':');
+                currentBufferSize += keyStr.length + 1;
 
-                if (currentChunkSize >= BUFFER_SIZE) {
-                    await fileHandle.write(chunks.join(','));
-                    chunks.length = 0;
-                    currentChunkSize = 0;
-
-                    if (i < keys.length - 1) {
-                        await fileHandle.write(',');
+                if (value instanceof Float32Array) {
+                    if (this.isSafeFloat32Array(value)) {
+                        buffer.push('[');
+                        const valStr = value.join(',');
+                        buffer.push(valStr);
+                        buffer.push(']');
+                        currentBufferSize += 2 + valStr.length;
+                    } else {
+                        // Fallback for non-finite values (NaN, Infinity) which JSON.stringify converts to null
+                        const valStr = JSON.stringify(Array.from(value));
+                        buffer.push(valStr);
+                        currentBufferSize += valStr.length;
                     }
+                } else {
+                    const valStr = JSON.stringify(value);
+                    buffer.push(valStr);
+                    currentBufferSize += valStr.length;
+                }
+
+                if (currentBufferSize >= BUFFER_SIZE) {
+                    await fileHandle.write(buffer.join(''));
+                    buffer.length = 0;
+                    currentBufferSize = 0;
                 }
             }
 
-            if (chunks.length > 0) {
-                await fileHandle.write(chunks.join(','));
+            if (buffer.length > 0) {
+                await fileHandle.write(buffer.join(''));
             }
 
             await fileHandle.write('}');
