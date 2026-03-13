@@ -166,6 +166,7 @@ function sortFuzzyResults(results: FuseResult<MCPTool>[], query: string): FuseRe
 
 function getMatchWeight(tool: MCPTool, queryWords: string[]): number {
     const text = tool.normalizedText || normalizeText(`${tool.name} ${tool.description} ${tool.schemaKeywords || ""}`);
+    const nameLower = tool.name.toLowerCase();
 
     let weight = 0
     for (const word of queryWords) {
@@ -173,7 +174,7 @@ function getMatchWeight(tool: MCPTool, queryWords: string[]): number {
             // Точное совпадение слова дает больше веса
             weight += 1
             // Если это часть имени или само имя - еще больше
-            if (tool.name.toLowerCase().includes(word)) {
+            if (nameLower.includes(word)) {
                 weight += 0.5
             }
         }
