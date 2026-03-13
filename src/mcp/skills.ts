@@ -78,8 +78,10 @@ function resolveValue(value: any, context: Record<string, any>): any {
         return value.map(v => resolveValue(v, context));
     } else if (typeof value === 'object' && value !== null) {
         const result: Record<string, any> = {};
-        for (const [k, v] of Object.entries(value)) {
-            result[k] = resolveValue(v, context);
+        for (const k in value) {
+            if (Object.prototype.hasOwnProperty.call(value, k)) {
+                result[k] = resolveValue(value[k], context);
+            }
         }
         return result;
     }
