@@ -140,13 +140,16 @@ export class EmbeddingService {
 
     static calculateMemoryUsage(embeddings: Record<string, Float32Array | number[]>): number {
         let totalBytes = 0;
-        for (const [key, vector] of Object.entries(embeddings)) {
-            // String key (approx 2 bytes per char) + Object/Array overhead
-            totalBytes += key.length * 2;
-            if (vector instanceof Float32Array) {
-                totalBytes += vector.byteLength;
-            } else {
-                totalBytes += vector.length * 8; // 8 bytes per number (double)
+        for (const key in embeddings) {
+            if (Object.prototype.hasOwnProperty.call(embeddings, key)) {
+                const vector = embeddings[key];
+                // String key (approx 2 bytes per char) + Object/Array overhead
+                totalBytes += key.length * 2;
+                if (vector instanceof Float32Array) {
+                    totalBytes += vector.byteLength;
+                } else {
+                    totalBytes += vector.length * 8; // 8 bytes per number (double)
+                }
             }
         }
         return totalBytes;
