@@ -56,8 +56,10 @@ export class EmbeddingService {
             const embeddings = JSON.parse(data);
             // Преобразуем обычные массивы из JSON обратно в Float32Array
             const typedEmbeddings: Record<string, Float32Array> = {};
-            for (const [key, value] of Object.entries(embeddings)) {
-                typedEmbeddings[key] = new Float32Array(value as number[]);
+            for (const key in embeddings) {
+                if (Object.prototype.hasOwnProperty.call(embeddings, key)) {
+                    typedEmbeddings[key] = new Float32Array(embeddings[key] as number[]);
+                }
             }
             this.logger.debug(`Cache hit for ${serverHash}: found ${Object.keys(typedEmbeddings).length} tools`);
             return typedEmbeddings;
@@ -140,13 +142,16 @@ export class EmbeddingService {
 
     static calculateMemoryUsage(embeddings: Record<string, Float32Array | number[]>): number {
         let totalBytes = 0;
-        for (const [key, vector] of Object.entries(embeddings)) {
-            // String key (approx 2 bytes per char) + Object/Array overhead
-            totalBytes += key.length * 2;
-            if (vector instanceof Float32Array) {
-                totalBytes += vector.byteLength;
-            } else {
-                totalBytes += vector.length * 8; // 8 bytes per number (double)
+        for (const key in embeddings) {
+            if (Object.prototype.hasOwnProperty.call(embeddings, key)) {
+                const vector = embeddings[key];
+                // String key (approx 2 bytes per char) + Object/Array overhead
+                totalBytes += key.length * 2;
+                if (vector instanceof Float32Array) {
+                    totalBytes += vector.byteLength;
+                } else {
+                    totalBytes += vector.length * 8; // 8 bytes per number (double)
+                }
             }
         }
         return totalBytes;
