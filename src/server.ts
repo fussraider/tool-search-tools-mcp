@@ -70,12 +70,17 @@ export class ToolSearchToolsMcpServer {
         this.logger.info(`Loading config from ${configPath}`)
 
         try {
-            if (!fs.existsSync(configPath)) {
-                this.logger.warn(`Config file not found at ${configPath}. Using empty config.`);
-                return;
+            let data;
+            try {
+                data = await fsPromises.readFile(configPath, "utf-8")
+            } catch (e) {
+                if (e && typeof e === 'object' && 'code' in e && e.code === 'ENOENT') {
+                    this.logger.warn(`Config file not found at ${configPath}. Using empty config.`);
+                    return;
+                }
+                throw e;
             }
 
-            const data = await fsPromises.readFile(configPath, "utf-8")
             let config;
             try {
                 config = JSON.parse(data)
