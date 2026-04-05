@@ -66,19 +66,25 @@ export class Logger {
         const emoji = LogEmoji[level] || '';
         const scopePart = this.scope ? ` [${this.scope}]` : '';
 
-        const formattedArgs = args.length > 0 ? ' ' + args.map(arg => {
-            if (arg instanceof Error) {
-                return arg.stack || arg.message;
-            }
-            if (typeof arg === 'object') {
-                try {
-                    return JSON.stringify(arg, null, 2);
-                } catch (e) {
-                    return '[Unserializable Object]';
+        let formattedArgs = '';
+        if (args.length > 0) {
+            for (let i = 0; i < args.length; i++) {
+                const arg = args[i];
+                let argStr;
+                if (arg instanceof Error) {
+                    argStr = arg.stack || arg.message;
+                } else if (typeof arg === 'object' && arg !== null) {
+                    try {
+                        argStr = JSON.stringify(arg, null, 2);
+                    } catch (e) {
+                        argStr = '[Unserializable Object]';
+                    }
+                } else {
+                    argStr = String(arg);
                 }
+                formattedArgs += ' ' + argStr;
             }
-            return String(arg);
-        }).join(' ') : '';
+        }
 
         return `${emoji}${timestampPart} [${LogLevel[level]}]${scopePart} ${message}${formattedArgs}\n`;
     }
