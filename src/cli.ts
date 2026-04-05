@@ -1,6 +1,7 @@
 import { MCPRegistry } from "./mcp/registry.js"
 import { searchTools } from "./mcp/search.js"
 import fs from "fs"
+import fsPromises from "fs/promises"
 import path from "path"
 import { fileURLToPath } from "url"
 import { logger } from "./utils/logger.js"
@@ -17,15 +18,19 @@ async function main() {
 
     const configPath = process.env.MCP_CONFIG_PATH || path.resolve(__dirname, "../mcp-config.json")
     
-    if (!fs.existsSync(configPath)) {
-        console.error(`Configuration file not found: ${configPath}`)
-        process.exit(1)
-    }
-
     const registry = new MCPRegistry()
     
     try {
-        const data = fs.readFileSync(configPath, "utf-8")
+        let data;
+        try {
+            data = await fsPromises.readFile(configPath, "utf-8")
+        } catch (e) {
+            if (e && typeof e === 'object' && 'code' in e && e.code === 'ENOENT') {
+                console.error(`Configuration file not found: ${configPath}`)
+                process.exit(1)
+            }
+            throw e
+        }
         const config = JSON.parse(data)
 
         if (!config.mcpServers || Object.keys(config.mcpServers).length === 0) {
