@@ -26,7 +26,7 @@ describe('Search Integration', () => {
         delete process.env.MCP_SEARCH_MODE;
 
         // Добавляем тестовые инструменты вручную в приватное поле для тестов
-        (registry as any)._tools = [
+        const tools = [
             {
                 name: 'read_file',
                 description: 'Read content from a file',
@@ -49,6 +49,13 @@ describe('Search Integration', () => {
                 embedding: [0, 0, 1] // Mock vector
             }
         ];
+        (registry as any)._tools = tools;
+        for (const tool of tools) {
+            (registry as any)._toolMap.set(`${tool.server}:${tool.name}`, tool);
+            const toolsByName = (registry as any)._toolsByNameMap.get(tool.name) || [];
+            toolsByName.push(tool);
+            (registry as any)._toolsByNameMap.set(tool.name, toolsByName);
+        }
     });
 
     it('should find tools using fuzzy search (default)', async () => {
