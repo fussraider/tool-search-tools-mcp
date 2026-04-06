@@ -23,6 +23,7 @@ export type MCPTool = {
 export class MCPRegistry {
     private _tools: MCPTool[] = []
     private _toolMap = new Map<string, MCPTool>()
+    private _toolsByNameMap = new Map<string, MCPTool[]>()
     private _updatedAt: number = 0
 
     get tools(): ReadonlyArray<MCPTool> {
@@ -35,6 +36,10 @@ export class MCPRegistry {
 
     public getTool(server: string, name: string): MCPTool | undefined {
         return this._toolMap.get(`${server}:${name}`)
+    }
+
+    public getToolsByName(name: string): ReadonlyArray<MCPTool> {
+        return this._toolsByNameMap.get(name) ?? []
     }
 
     async connectServer(
@@ -140,6 +145,11 @@ export class MCPRegistry {
 
             this._tools.push(mcpTool)
             this._toolMap.set(`${serverName}:${tool.name}`, mcpTool)
+
+            // Update toolsByNameMap
+            const toolsByName = this._toolsByNameMap.get(tool.name) || []
+            toolsByName.push(mcpTool)
+            this._toolsByNameMap.set(tool.name, toolsByName)
         }
 
         if (Object.keys(currentEmbeddings).length > 0) {
@@ -199,6 +209,11 @@ export class MCPRegistry {
 
         this._tools.push(mcpTool);
         this._toolMap.set(`internal:${skill.name}`, mcpTool);
+
+        // Update toolsByNameMap
+        const toolsByName = this._toolsByNameMap.get(skill.name) || []
+        toolsByName.push(mcpTool)
+        this._toolsByNameMap.set(skill.name, toolsByName)
 
         this._updatedAt = Date.now();
     }

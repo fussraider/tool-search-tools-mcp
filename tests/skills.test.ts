@@ -47,7 +47,7 @@ skills:
         beforeEach(() => {
             registry = new MCPRegistry();
             // Manually add mock tools
-            (registry as any)._tools = [
+            const tools = [
                 {
                     name: 'echo',
                     server: 'test-server',
@@ -63,6 +63,13 @@ skills:
                     client: {} as any
                 }
             ];
+            (registry as any)._tools = tools;
+            for (const tool of tools) {
+                (registry as any)._toolMap.set(`${tool.server}:${tool.name}`, tool);
+                const toolsByName = (registry as any)._toolsByNameMap.get(tool.name) || [];
+                toolsByName.push(tool);
+                (registry as any)._toolsByNameMap.set(tool.name, toolsByName);
+            }
         });
 
         it('should execute a simple skill with variable substitution', async () => {
@@ -149,13 +156,18 @@ skills:
 
         it('should warn and pick first if multiple tools found', async () => {
              // Add duplicate tool
-            (registry as any)._tools.push({
+            const duplicateTool = {
                 name: 'echo',
                 server: 'another-server',
                 description: 'Another echo',
                 schema: {},
                 client: {} as any
-            });
+            };
+            (registry as any)._tools.push(duplicateTool);
+            (registry as any)._toolMap.set(`${duplicateTool.server}:${duplicateTool.name}`, duplicateTool);
+            const toolsByName = (registry as any)._toolsByNameMap.get(duplicateTool.name) || [];
+            toolsByName.push(duplicateTool);
+            (registry as any)._toolsByNameMap.set(duplicateTool.name, toolsByName);
 
              const skill: MCPTool = {
                 name: 'ambiguous_skill',
